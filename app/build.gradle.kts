@@ -5,7 +5,9 @@ plugins {
 android {
     namespace = "ro.pub.cs.systems.ssproject"
     compileSdk {
-        version = release(36)
+        version = release(36) {
+            minorApiLevel = 1
+        }
     }
 
     defaultConfig {
