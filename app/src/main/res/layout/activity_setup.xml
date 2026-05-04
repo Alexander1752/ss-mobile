@@ -34,22 +34,19 @@
                 android:layout_height="wrap_content"
                 android:paddingBottom="20dp"
                 android:text="@string/setup_title" />
-
             <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/setup_card_view_ip_field_layout"
+                android:id="@+id/setup_card_view_ip_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/setup_hint_ip">
+                android:hint="Broker Address (IP or Hostname)">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/setup_card_view_ip_field"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:digits="@string/setup_ip_digits"
-                    android:singleLine="true" />
+                    android:inputType="text" />
 
             </com.google.android.material.textfield.TextInputLayout>
-
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/setup_card_view_port_field_layout"
                 android:layout_width="match_parent"

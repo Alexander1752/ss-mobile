@@ -9,8 +9,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import ro.pub.cs.systems.ssproject.ui.dashboard.MainActivity
 import ro.pub.cs.systems.ssproject.R
+import java.util.regex.Pattern
 
 class SetupActivity : ComponentActivity() {
+    
+    companion object {
+        // Hostname validation pattern (DNS names)
+        private val HOSTNAME_PATTERN = Pattern.compile(
+            "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?$"
+        )
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -19,12 +28,14 @@ class SetupActivity : ComponentActivity() {
         val ipField = findViewById<EditText>(R.id.setup_card_view_ip_field)
         val portField = findViewById<EditText>(R.id.setup_card_view_port_field)
         val connect = findViewById<Button>(R.id.setup_card_view_connect_btn)
+        
         connect.setOnClickListener {
-            val inputIp = ipField.text.toString().trim()
+            val inputAddress = ipField.text.toString().trim()
             val inputPort = portField.text.toString().trim()
 
-            if (inputIp.isEmpty() || !Patterns.IP_ADDRESS.matcher(inputIp).matches()) {
-                ipField.error = "Invalid IP address"
+            // Validate IP address or hostname
+            if (inputAddress.isEmpty() || !isValidAddressOrHostname(inputAddress)) {
+                ipField.error = "Invalid IP address or hostname"
                 ipField.requestFocus()
                 return@setOnClickListener
             }
@@ -37,9 +48,28 @@ class SetupActivity : ComponentActivity() {
             }
 
             val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("brokerIp", inputIp)
+            intent.putExtra("brokerIp", inputAddress)
             intent.putExtra("brokerPort", inputPort)
             startActivity(intent)
         }
+    }
+    
+    private fun isValidAddressOrHostname(address: String): Boolean {
+        // Check if it's a valid IP address
+        if (Patterns.IP_ADDRESS.matcher(address).matches()) {
+            return true
+        }
+        
+        // Check if it's a valid hostname/domain name
+        if (HOSTNAME_PATTERN.matcher(address).matches()) {
+            return true
+        }
+        
+        // Check for localhost
+        if (address.equals("localhost", ignoreCase = true)) {
+            return true
+        }
+        
+        return false
     }
 }
