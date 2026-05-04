@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         statusBrokerAddress.text = getString(R.string.main_status_broker_address_format, brokerIp, brokerPort)
 
         mqttHandler = MqttHandler(
+            this,
             brokerIp,
             brokerPort,
             isConnectedCallback = { isConnected ->

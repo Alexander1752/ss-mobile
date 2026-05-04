@@ -1,5 +1,6 @@
 package ro.pub.cs.systems.ssproject.mqtt
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -10,16 +11,75 @@ import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+import java.io.InputStream
+import java.security.KeyStore
+import java.security.cert.CertificateFactory
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLSocketFactory
 
 class MqttHandler(
+    private val context: Context,
     brokerIp: String,
     brokerPort: String,
     private val isConnectedCallback: (Boolean) -> Unit,
     private val onCommandReceived: (String) -> Unit
 ) : MqttCallback {
-    private val brokerUrl = "tcp://$brokerIp:$brokerPort"
+    private val brokerUrl = "ssl://$brokerIp:$brokerPort"
     private val clientId = "${Build.MANUFACTURER}_${Build.MODEL}_${MqttClient.generateClientId()}"
     private var client: MqttClient? = null
+
+    private fun getSSLSocketFactory(): SSLSocketFactory {
+        try {
+            // Load CA certificate from mkcert
+            val cf = CertificateFactory.getInstance("X.509")
+            val caInput: InputStream = context.assets.open("ca.crt")
+            val ca = caInput.use {
+                cf.generateCertificate(it)
+            }
+
+            // Create KeyStore with CA certificate
+            val keyStoreType = KeyStore.getDefaultType()
+            val keyStore = KeyStore.getInstance(keyStoreType).apply {
+                load(null, null)
+                setCertificateEntry("ca", ca)
+            }
+
+            // Create TrustManager
+            val tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm()
+            val tmf = TrustManagerFactory.getInstance(tmfAlgorithm).apply {
+                init(keyStore)
+            }
+
+            // Load client certificate (PKCS12 from mkcert)
+            val clientKeyStore = KeyStore.getInstance("PKCS12")
+            val clientCertInput: InputStream = context.assets.open("client.p12")
+            // mkcert generates p12 files with empty password by default
+            val keyStorePassword = "changeit".toCharArray()
+            
+            clientCertInput.use {
+                clientKeyStore.load(it, keyStorePassword)
+            }
+
+            // Create KeyManager
+            val kmfAlgorithm = KeyManagerFactory.getDefaultAlgorithm()
+            val kmf = KeyManagerFactory.getInstance(kmfAlgorithm).apply {
+                init(clientKeyStore, keyStorePassword)
+            }
+
+            // Create SSLContext
+            val sslContext = SSLContext.getInstance("TLSv1.2").apply {
+                init(kmf.keyManagers, tmf.trustManagers, null)
+            }
+
+            return sslContext.socketFactory
+        } catch (e: Exception) {
+            Log.e(MqttConstants.TAG, "SSL setup error: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
+    }
 
     suspend fun connect() {
         withContext(Dispatchers.IO) {
@@ -35,10 +95,11 @@ class MqttHandler(
                     isCleanSession = true
                     connectionTimeout = 10
                     keepAliveInterval = 60
+                    socketFactory = getSSLSocketFactory()
                 }
 
                 client?.connect(options)
-                Log.i(MqttConstants.TAG, "Connected to $brokerUrl")
+                Log.i(MqttConstants.TAG, "Connected to $brokerUrl with mTLS (mkcert)")
 
                 client?.subscribe(MqttConstants.TOPIC_COMMANDS, 1)
                 Log.i(MqttConstants.TAG, "Subscribed to ${MqttConstants.TOPIC_COMMANDS}")
